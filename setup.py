@@ -14,7 +14,8 @@ setup(
         'click==6.6',
         'requests==2.10.0',
         'boto3==1.9.73',
-        'arrow==0.8.0'
+        'arrow==0.8.0',
+        'asyncio==3.4.3'
     ],
     zip_safe=False,
     classifiers=(
