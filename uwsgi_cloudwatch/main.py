@@ -5,6 +5,7 @@ import click
 import logging
 import re
 import requests
+import urllib.request
 from . import validation
 
 logging.basicConfig(level=logging.INFO)
@@ -30,11 +31,22 @@ def run_periodically(func, interval):
     _set()
 
 
+def retrieve_asg(region, instance_id):
+    asg = boto3.client('autoscaling', region_name=region)
+    response = asg.describe_auto_scaling_instances(InstanceIds=[instance_id])
+    asg_info = response['AutoScalingInstances']
+    asg_name = asg_info[0]['AutoScalingGroupName']
+    return asg_name
+
+
 def put_metrics(metrics, region, namespace, metric_prefix):
     """ Puts metrics in target CloudWatch namespace. """
 
     timestamp = arrow.get().datetime
     client = boto3.client('cloudwatch', region_name=region)
+    instance_id = urllib.request.urlopen(
+        'http://169.254.169.254/latest/meta-data/instance-id').read().decode()
+    asg_name = retrieve_asg(region, instance_id)
 
     # Assemble Metrics
     metric_data = []
@@ -54,6 +66,24 @@ def put_metrics(metrics, region, namespace, metric_prefix):
             for i in value:
                 metric_data.append({
                     'MetricName': metric_prefix + name,
+                    'Dimensions': [
+                        {
+                            'Name': 'By Instance ID',
+                            'Value': instance_id
+                        },
+                    ],
+                    'Timestamp': timestamp,
+                    'Value': i,
+                    'Unit': unit
+                })
+                metric_data.append({
+                    'MetricName': metric_prefix + name,
+                    'Dimensions': [
+                        {
+                            'Name': 'By Auto Scaling Group',
+                            'Value': asg_name
+                        },
+                    ],
                     'Timestamp': timestamp,
                     'Value': i,
                     'Unit': unit
@@ -61,6 +91,24 @@ def put_metrics(metrics, region, namespace, metric_prefix):
         else:
             metric_data.append({
                 'MetricName': metric_prefix + name,
+                'Dimensions': [
+                    {
+                        'Name': 'By Instance ID',
+                        'Value': instance_id
+                    },
+                ],
+                'Timestamp': timestamp,
+                'Value': value,
+                'Unit': unit
+            })
+            metric_data.append({
+                'MetricName': metric_prefix + name,
+                'Dimensions': [
+                    {
+                        'Name': 'By Auto Scaling Group',
+                        'Value': asg_name
+                    },
+                ],
                 'Timestamp': timestamp,
                 'Value': value,
                 'Unit': unit
@@ -137,8 +185,10 @@ def generate_metrics(stats):
         m['WorkersSignalQueueCount'].append(worker['signal_queue'])
         m['WorkersRssBytes'].append(worker['rss'])
         m['WorkersVszBytes'].append(worker['vsz'])
-        m['WorkersAverageResponseTimeMilliseconds'].append(int(worker['avg_rt']/1000))
-        m['WorkersRunningTimeMilliseconds'].append(int(worker['running_time']/1000))
+        m['WorkersAverageResponseTimeMilliseconds'].append(
+            int(worker['avg_rt']/1000))
+        m['WorkersRunningTimeMilliseconds'].append(
+            int(worker['running_time']/1000))
         m['WorkersLastSpawnTimestamp'].append(worker['last_spawn'])
         m['WorkersRespawnCount'].append(worker['respawn_count'])
 
@@ -194,8 +244,9 @@ def update_cloudwatch_metrics(stats_server, region, namespace, metric_prefix):
 @click.argument('stats-server')
 @click.option('--region', default='us-east-1')
 @click.option('--namespace', required=True, callback=validation.namespace)
-@click.option('--frequency', default=60, callback=validation.frequency)
+@click.option('--frequency', default=30, callback=validation.frequency)
 @click.option('--metric-prefix', default='uWSGI', callback=validation.prefix)
 def cli(stats_server, region, namespace, frequency, metric_prefix):
-    run_periodically(update_cloudwatch_metrics(stats_server, region, namespace, metric_prefix), frequency)
+    run_periodically(update_cloudwatch_metrics(
+        stats_server, region, namespace, metric_prefix), frequency)
     asyncio.get_event_loop().run_forever()

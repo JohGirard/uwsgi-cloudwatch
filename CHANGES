@@ -3,6 +3,15 @@ uwsgi-cloudwatch Changelog
 
 A list of changes for each release.
 
+Version 0.0.1.4
+-------------
+
+- Change Dependancies
+- Include uwsgi in Autoscaling Group Dimension
+- Get the current region from Instance Metadata
+- Change default Frequency from 60 sec to 30 sec
+
+
 Version 0.0.1
 -------------
 
