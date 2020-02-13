@@ -12,7 +12,7 @@ setup(
     url='https://github.com/JohGirard/uwsgi-cloudwatch',
     install_requires=[
         'click==6.6',
-        'requests==2.10.0',
+        'requests==2.20.0',
         'boto3==1.9.73',
         'arrow==0.8.0',
         'asyncio==3.4.3'
