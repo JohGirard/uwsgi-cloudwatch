@@ -13,7 +13,7 @@ setup(
     install_requires=[
         'click==6.6',
         'requests==2.10.0',
-        'boto3==1.9.73',
+        'boto3==1.16.24',
         'arrow==0.8.0',
         'asyncio==3.4.3'
     ],
